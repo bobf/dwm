@@ -1,7 +1,7 @@
 /* See LICENSE file for copyright and license details. */
 
 /* appearance */
-static const unsigned int borderpx  = 1;        /* border pixel of windows */
+static const unsigned int borderpx  = 3;        /* border pixel of windows */
 static const unsigned int snap      = 32;       /* snap pixel */
 static const int showbar            = 1;        /* 0 means no bar */
 static const int topbar             = 1;        /* 0 means bottom bar */
@@ -13,10 +13,11 @@ static const char col_gray2[]       = "#444444";
 static const char col_gray3[]       = "#bbbbbb";
 static const char col_gray4[]       = "#eeeeee";
 static const char col_cyan[]        = "#005577";
+static const char col_border_sel[]  = "#00aaff"; /* bright accent for active window border */
 static const char *colors[][3]      = {
-	/*               fg         bg         border   */
-	[SchemeNorm] = { col_gray3, col_gray1, col_gray2 },
-	[SchemeSel]  = { col_gray4, col_cyan,  col_cyan  },
+	/*               fg         bg         border         */
+	[SchemeNorm] = { col_gray3, col_gray1, col_gray2       },
+	[SchemeSel]  = { col_gray4, col_cyan,  col_border_sel  },
 };
 
 /* tagging */
@@ -31,7 +32,8 @@ static const Rule rules[] = {
 	{ "slack",            "Slack",       NULL,       1 << 8,            0,           -1 },
 	{ "spotify",          NULL,       NULL,       1 << 7,            0,           -1 },
 	{ "pavucontrol",      NULL,       NULL,       1 << 7,            0,           -1 },
-	{ "chromium",         NULL,       NULL,       1 << 4,            0,           -1 },
+	{ "chrome-ext",       NULL,       NULL,       1 << 4,            0,            1 },
+	{ "chrome-laptop",    NULL,       NULL,       1 << 4,            0,            0 },
 	{ "firefox",          NULL,       NULL,       1 << 3,            0,           -1 },
 	{ "telegram-desktop", NULL,       NULL,       1 << 3,            0,           -1 },
 };
@@ -67,7 +69,7 @@ static const char *termcmd[]  = { "kitty", "terminal-startup", NULL };
 
 static const Key keys[] = {
 	/* modifier                     key        function        argument */
-	{ MODKEY,                       XK_p,      spawn,          {.v = dmenucmd } },
+	{ MODKEY,                       XK_BackSpace,      spawn,          {.v = dmenucmd } },
 	{ MODKEY|ShiftMask,             XK_Return, spawn,          {.v = termcmd } },
 	{ MODKEY,                       XK_b,      togglebar,      {0} },
 	{ MODKEY,                       XK_j,      focusstack,     {.i = +1 } },
@@ -78,32 +80,33 @@ static const Key keys[] = {
 	{ MODKEY,                       XK_l,      setmfact,       {.f = +0.05} },
 	{ MODKEY,                       XK_Return, zoom,           {0} },
 	{ MODKEY,                       XK_Tab,    view,           {0} },
-	{ MODKEY|ShiftMask,             XK_c,      killclient,     {0} },
+	{ MODKEY|ShiftMask,             XK_x,      killclient,     {0} },
 	{ MODKEY,                       XK_t,      setlayout,      {.v = &layouts[0]} },
-	{ MODKEY,                       XK_f,      setlayout,      {.v = &layouts[1]} },
+	{ MODKEY,                       XK_n,      setlayout,      {.v = &layouts[1]} },
 	{ MODKEY,                       XK_m,      setlayout,      {.v = &layouts[2]} },
 	{ MODKEY,                       XK_space,  setlayout,      {0} },
 	{ MODKEY|ShiftMask,             XK_space,  togglefloating, {0} },
 	{ MODKEY,                       XK_0,      view,           {.ui = ~0 } },
 	{ MODKEY|ShiftMask,             XK_0,      tag,            {.ui = ~0 } },
-	{ MODKEY,                       XK_comma,  focusmon,       {.i = -1 } },
-	{ MODKEY,                       XK_period, focusmon,       {.i = +1 } },
-	{ MODKEY|ShiftMask,             XK_comma,  tagmon,         {.i = -1 } },
-	{ MODKEY|ShiftMask,             XK_period, tagmon,         {.i = +1 } },
+	{ MODKEY|ShiftMask,             XK_h,      tagmon,         {.i = -1 } },
+	{ MODKEY|ShiftMask,             XK_l,      tagmon,         {.i = +1 } },
         { MODKEY|ControlMask,           XK_l,      spawn,          SHCMD("slock") },
         { MODKEY|ControlMask,           XK_s,      spawn,          SHCMD("screenshot") },
         { MODKEY|ControlMask,           XK_t,      spawn,          SHCMD("theme-switch") },
         { MODKEY|ControlMask,           XK_f,      spawn,          SHCMD("theme-fav") },
-	TAGKEYS(                        XK_1,                      0)
-	TAGKEYS(                        XK_2,                      1)
-	TAGKEYS(                        XK_3,                      2)
-	TAGKEYS(                        XK_4,                      3)
-	TAGKEYS(                        XK_5,                      4)
-	TAGKEYS(                        XK_6,                      5)
-	TAGKEYS(                        XK_7,                      6)
-	TAGKEYS(                        XK_8,                      7)
-	TAGKEYS(                        XK_9,                      8)
+	{ MODKEY|ShiftMask,                       XK_j,  focusmon,       {.i = -1 } },
+	{ MODKEY|ShiftMask,                       XK_k, focusmon,       {.i = +1 } },
+	TAGKEYS(                        XK_apostrophe,                      0)
+	TAGKEYS(                        XK_comma,                      1)
+	TAGKEYS(                        XK_period,                      2)
+	TAGKEYS(                        XK_p,                      3)
+	TAGKEYS(                        XK_y,                      4)
+	TAGKEYS(                        XK_f,                      5)
+	TAGKEYS(                        XK_g,                      6)
+	TAGKEYS(                        XK_c,                      7)
+	TAGKEYS(                        XK_r,                      8)
 	{ MODKEY|ShiftMask,             XK_q,      quit,           {0} },
+	{ MODKEY|ControlMask|ShiftMask, XK_q,      spawn,          SHCMD("touch ~/.dwm-quit && pkill -x dwm") },
 };
 
 /* button definitions */

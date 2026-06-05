@@ -52,6 +52,7 @@
 #define ISVISIBLE(C)            ((C->tags & C->mon->tagset[C->mon->seltags]))
 #define LENGTH(X)               (sizeof X / sizeof X[0])
 #define MOUSEMASK               (BUTTONMASK|PointerMotionMask)
+#define MONFIELDS               10  /* longs of state saved per monitor */
 #define WIDTH(X)                ((X)->w + 2 * (X)->bw)
 #define HEIGHT(X)               ((X)->h + 2 * (X)->bw)
 #define TAGMASK                 ((1 << LENGTH(tags)) - 1)
@@ -197,7 +198,10 @@ static void run(void);
 static void scan(void);
 static int sendevent(Client *c, Atom proto);
 static void sendmon(Client *c, Monitor *m);
+static void restoremonstate(void);
+static void savemonstate(void);
 static void setclientstate(Client *c, long state);
+static void setclienttagprop(Client *c);
 static void setfocus(Client *c);
 static void setfullscreen(Client *c, int fullscreen);
 static void setlayout(const Arg *arg);
@@ -260,6 +264,8 @@ static void (*handler[LASTEvent]) (XEvent *) = {
 	[UnmapNotify] = unmapnotify
 };
 static Atom wmatom[WMLast], netatom[NetLast];
+static Atom dwmtagsatom;
+static Atom dwmmonstateatom;
 static int running = 1;
 static Cur *cursor[CurLast];
 static Clr **scheme;
@@ -981,6 +987,7 @@ void
 incnmaster(const Arg *arg)
 {
 	selmon->nmaster = MAX(selmon->nmaster + arg->i, 0);
+	savemonstate();
 	arrange(selmon);
 }
 
@@ -1052,6 +1059,23 @@ manage(Window w, XWindowAttributes *wa)
 		c->mon = selmon;
 		applyrules(c);
 	}
+
+	{
+		/* restore tags saved from a previous dwm session, if present */
+		Atom prop_type;
+		int prop_format;
+		unsigned long nitems, bytes_after;
+		unsigned char *prop = NULL;
+
+		if (XGetWindowProperty(dpy, w, dwmtagsatom, 0L, 1L, False, XA_CARDINAL,
+				&prop_type, &prop_format, &nitems, &bytes_after, &prop) == Success
+				&& prop) {
+			if (nitems == 1 && (*(long *)prop & TAGMASK))
+				c->tags = *(long *)prop & TAGMASK;
+			XFree(prop);
+		}
+	}
+	setclienttagprop(c);
 
 	if (c->x + WIDTH(c) > c->mon->wx + c->mon->ww)
 		c->x = c->mon->wx + c->mon->ww - WIDTH(c);
@@ -1442,6 +1466,88 @@ setclientstate(Client *c, long state)
 		PropModeReplace, (unsigned char *)data, 2);
 }
 
+void
+savemonstate(void)
+{
+	Monitor *m;
+	unsigned int n = 0, i, j;
+	long *data, *r;
+
+	for (m = mons; m; m = m->next)
+		n++;
+	if (!n)
+		return;
+	data = ecalloc(n * MONFIELDS, sizeof(long));
+	for (i = 0, m = mons; m; m = m->next, i++) {
+		r = &data[i * MONFIELDS];
+		r[0] = m->num;
+		r[1] = m->tagset[0];
+		r[2] = m->tagset[1];
+		r[3] = m->seltags;
+		r[4] = m->sellt;
+		r[5] = r[6] = 0;
+		for (j = 0; j < LENGTH(layouts); j++) {
+			if (m->lt[0] == &layouts[j])
+				r[5] = j;
+			if (m->lt[1] == &layouts[j])
+				r[6] = j;
+		}
+		r[7] = (long)(m->mfact * 10000);
+		r[8] = m->nmaster;
+		r[9] = m->showbar;
+	}
+	XChangeProperty(dpy, root, dwmmonstateatom, XA_CARDINAL, 32,
+		PropModeReplace, (unsigned char *)data, n * MONFIELDS);
+	free(data);
+}
+
+void
+restoremonstate(void)
+{
+	Monitor *m;
+	Atom type;
+	int format;
+	unsigned long nitems, bytes_after, i;
+	unsigned char *prop = NULL;
+	long *data, *r;
+
+	if (XGetWindowProperty(dpy, root, dwmmonstateatom, 0L, 1024L, False, XA_CARDINAL,
+			&type, &format, &nitems, &bytes_after, &prop) != Success || !prop)
+		return;
+	data = (long *)prop;
+	for (i = 0; i + MONFIELDS <= nitems; i += MONFIELDS) {
+		r = &data[i];
+		for (m = mons; m && m->num != r[0]; m = m->next);
+		if (!m)
+			continue;
+		m->tagset[0] = r[1] & TAGMASK ? r[1] & TAGMASK : 1;
+		m->tagset[1] = r[2] & TAGMASK ? r[2] & TAGMASK : 1;
+		m->seltags = r[3] & 1;
+		m->sellt = r[4] & 1;
+		if (r[5] >= 0 && r[5] < (long)LENGTH(layouts))
+			m->lt[0] = &layouts[r[5]];
+		if (r[6] >= 0 && r[6] < (long)LENGTH(layouts))
+			m->lt[1] = &layouts[r[6]];
+		m->mfact = r[7] / 10000.0f;
+		m->nmaster = r[8];
+		m->showbar = r[9];
+		strncpy(m->ltsymbol, m->lt[m->sellt]->symbol, sizeof m->ltsymbol);
+		updatebarpos(m);
+		XMoveResizeWindow(dpy, m->barwin, m->wx, m->by, m->ww, bh);
+		arrange(m);
+	}
+	XFree(prop);
+}
+
+void
+setclienttagprop(Client *c)
+{
+	long data = c->tags;
+
+	XChangeProperty(dpy, c->win, dwmtagsatom, XA_CARDINAL, 32,
+		PropModeReplace, (unsigned char *)&data, 1);
+}
+
 int
 sendevent(Client *c, Atom proto)
 {
@@ -1515,6 +1621,7 @@ setlayout(const Arg *arg)
 	if (arg && arg->v)
 		selmon->lt[selmon->sellt] = (Layout *)arg->v;
 	strncpy(selmon->ltsymbol, selmon->lt[selmon->sellt]->symbol, sizeof selmon->ltsymbol);
+	savemonstate();
 	if (selmon->sel)
 		arrange(selmon);
 	else
@@ -1533,6 +1640,7 @@ setmfact(const Arg *arg)
 	if (f < 0.05 || f > 0.95)
 		return;
 	selmon->mfact = f;
+	savemonstate();
 	arrange(selmon);
 }
 
@@ -1579,6 +1687,8 @@ setup(void)
 	netatom[NetWMWindowType] = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE", False);
 	netatom[NetWMWindowTypeDialog] = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DIALOG", False);
 	netatom[NetClientList] = XInternAtom(dpy, "_NET_CLIENT_LIST", False);
+	dwmtagsatom = XInternAtom(dpy, "_DWM_TAGS", False);
+	dwmmonstateatom = XInternAtom(dpy, "_DWM_MONITOR_STATE", False);
 	/* init cursors */
 	cursor[CurNormal] = drw_cur_create(drw, XC_left_ptr);
 	cursor[CurResize] = drw_cur_create(drw, XC_sizing);
@@ -1610,6 +1720,7 @@ setup(void)
 	XChangeWindowAttributes(dpy, root, CWEventMask|CWCursor, &wa);
 	XSelectInput(dpy, root, wa.event_mask);
 	grabkeys();
+	restoremonstate();
 	focus(NULL);
 }
 
@@ -1671,6 +1782,7 @@ tag(const Arg *arg)
 {
 	if (selmon->sel && arg->ui & TAGMASK) {
 		selmon->sel->tags = arg->ui & TAGMASK;
+		setclienttagprop(selmon->sel);
 		focus(NULL);
 		arrange(selmon);
 	}
@@ -1718,6 +1830,7 @@ togglebar(const Arg *arg)
 	selmon->showbar = !selmon->showbar;
 	updatebarpos(selmon);
 	XMoveResizeWindow(dpy, selmon->barwin, selmon->wx, selmon->by, selmon->ww, bh);
+	savemonstate();
 	arrange(selmon);
 }
 
@@ -1745,6 +1858,7 @@ toggletag(const Arg *arg)
 	newtags = selmon->sel->tags ^ (arg->ui & TAGMASK);
 	if (newtags) {
 		selmon->sel->tags = newtags;
+		setclienttagprop(selmon->sel);
 		focus(NULL);
 		arrange(selmon);
 	}
@@ -1757,6 +1871,7 @@ toggleview(const Arg *arg)
 
 	if (newtagset) {
 		selmon->tagset[selmon->seltags] = newtagset;
+		savemonstate();
 		focus(NULL);
 		arrange(selmon);
 	}
@@ -2058,6 +2173,7 @@ view(const Arg *arg)
 	selmon->seltags ^= 1; /* toggle sel tagset */
 	if (arg->ui & TAGMASK)
 		selmon->tagset[selmon->seltags] = arg->ui & TAGMASK;
+	savemonstate();
 	focus(NULL);
 	arrange(selmon);
 }

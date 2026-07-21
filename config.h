@@ -33,8 +33,8 @@ static const Rule rules[] = {
 	{ "slack",            "Slack",       NULL,       1 << 8,            0,           -1 },
 	{ "spotify",          NULL,       NULL,       1 << 7,            0,           -1 },
 	{ "pavucontrol",      NULL,       NULL,       1 << 7,            0,           -1 },
-	{ "chrome-ext",       NULL,       NULL,       1 << 4,            0,            1 },
-	{ "chrome-laptop",    NULL,       NULL,       1 << 4,            0,            0 },
+	{ "chrome-ext",       NULL,       NULL,       1 << 9,            0,            1 },
+	{ "chrome-laptop",    NULL,       NULL,       1 << 9,            0,            0 },
 	{ "firefox",          NULL,       NULL,       1 << 3,            0,           -1 },
 	{ "telegram-desktop", NULL,       NULL,       1 << 3,            0,           -1 },
 };

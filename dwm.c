@@ -1529,7 +1529,7 @@ restoremonstate(void)
 		if (r[6] >= 0 && r[6] < (long)LENGTH(layouts))
 			m->lt[1] = &layouts[r[6]];
 		m->mfact = r[7] / 10000.0f;
-		m->nmaster = r[8];
+		m->nmaster = 1; /* nmaster is not user-adjustable; ignore persisted value */
 		m->showbar = r[9];
 		strncpy(m->ltsymbol, m->lt[m->sellt]->symbol, sizeof m->ltsymbol);
 		updatebarpos(m);

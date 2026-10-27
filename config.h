@@ -7,7 +7,7 @@ static const int showbar            = 1;        /* 0 means no bar */
 static const int topbar             = 1;        /* 0 means bottom bar */
 static const int focusonwheel       = 0;
 static const int focusonhover       = 0;        /* 0 means focus follows click, not mouse hover */
-static const char *fonts[]          = { "monospace:size=10" };
+static const char *fonts[]          = { "monospace:size=10", "Hack Nerd Font Mono:size=10" };
 static const char dmenufont[]       = "monospace:size=10";
 static const char col_gray1[]       = "#222222";
 static const char col_gray2[]       = "#444444";
@@ -93,6 +93,7 @@ static const Key keys[] = {
         { MODKEY|ControlMask,           XK_s,      spawn,          SHCMD("screenshot") },
         { MODKEY|ControlMask,           XK_t,      spawn,          SHCMD("theme-switch") },
         { MODKEY|ControlMask,           XK_f,      spawn,          SHCMD("theme-fav") },
+        { MODKEY|ControlMask,           XK_d,      spawn,          SHCMD("voyager-ripple") },
 	{ MODKEY|ShiftMask,                       XK_j,  focusmon,       {.i = -1 } },
 	{ MODKEY|ShiftMask,                       XK_k, focusmon,       {.i = +1 } },
 	TAGKEYS(                        XK_apostrophe,                      0)
